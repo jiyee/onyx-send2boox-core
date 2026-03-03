@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "description": "TypeScript CLI for interacting with Onyx send2boox service",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./browser": "./dist/src/browser.js",
+    "./snapshot": "./dist/src/snapshot.js",
+    "./api": "./dist/src/api.js"
+  },
   "bin": {
-    "send2boox": "dist/cli.js"
+    "send2boox": "dist/src/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
