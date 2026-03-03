@@ -2,5 +2,6 @@ node_modules/
 dist/
 coverage/
 .DS_Store
-config.toml
+config.json
+.env.local
 session-cookies.json

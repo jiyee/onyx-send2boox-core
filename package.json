@@ -18,7 +18,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@iarna/toml": "^2.2.5",
     "ali-oss": "^6.23.0",
     "argparse": "^2.0.1"
   },

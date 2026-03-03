@@ -9,7 +9,7 @@ import {
   formatLibraryBooksTable
 } from './client.js';
 import type { AppConfig } from './config.js';
-import { loadConfig, saveConfig } from './config.js';
+import { DEFAULT_CONFIG_PATH, loadConfig, saveConfig } from './config.js';
 import { ConfigError, Send2BooxError } from './exceptions.js';
 import { runPlaywrightDebug } from './playwrightDebug.js';
 import {
@@ -76,8 +76,8 @@ function printError(message: string): void {
 export function buildParser(): ArgumentParser {
   const parser = new SafeArgumentParser({ prog: 'send2boox' });
   parser.add_argument('--config', {
-    default: 'config.toml',
-    help: 'Path to TOML config file (default: config.toml)'
+    default: DEFAULT_CONFIG_PATH,
+    help: `Path to JSON config file (default: ${DEFAULT_CONFIG_PATH})`
   });
   parser.add_argument('--server', {
     help: 'send2boox server host; overrides config server'
@@ -263,7 +263,7 @@ export function buildParser(): ArgumentParser {
   browserParser.set_defaults({ command: 'debug_browser' });
   browserParser.add_argument('url', { help: 'Target URL to open' });
   browserParser.add_argument('--token', {
-    help: 'Token value to inject; defaults to token from config.toml'
+    help: 'Token value to inject; defaults to token from .env.local'
   });
   browserParser.add_argument('--token-key', {
     default: 'token',
@@ -408,7 +408,7 @@ export async function main(
 
       const ensureRuntimeConfig = (): AppConfig => {
         if (!runtimeConfig) {
-          runtimeConfig = runtime.loadConfig(String(args.config ?? 'config.toml'));
+          runtimeConfig = runtime.loadConfig(String(args.config ?? DEFAULT_CONFIG_PATH));
           if (typeof args.server === 'string' && args.server.trim()) {
             runtimeConfig.cloud = args.server.trim();
           }
@@ -422,7 +422,9 @@ export async function main(
       }
 
       if (!token) {
-        throw new ConfigError('Token is required. Pass --token or set token in config.toml.');
+        throw new ConfigError(
+          'Token is required. Pass --token or set SEND2BOOX_TOKEN in .env.local.'
+        );
       }
 
       if (!cookieJsonPath) {
@@ -484,7 +486,7 @@ export async function main(
       return 0;
     }
 
-    const configPath = String(args.config ?? 'config.toml');
+    const configPath = String(args.config ?? DEFAULT_CONFIG_PATH);
     const config = runtime.loadConfig(configPath);
     if (typeof args.server === 'string' && args.server.trim()) {
       config.cloud = args.server.trim();
@@ -495,7 +497,7 @@ export async function main(
       const account = resolveLoginAccount(args, config);
       if (!account) {
         throw new ConfigError(
-          'Login account is required. Set email/mobile in config.toml or pass --account/--email/--mobile.'
+          'Login account is required. Set email/mobile in config.json or pass --account/--email/--mobile.'
         );
       }
       await client.requestVerificationCode(account);
@@ -507,7 +509,7 @@ export async function main(
       const account = resolveLoginAccount(args, config);
       if (!account) {
         throw new ConfigError(
-          'Login account is required. Set email/mobile in config.toml or pass --account/--email/--mobile.'
+          'Login account is required. Set email/mobile in config.json or pass --account/--email/--mobile.'
         );
       }
       const token = await client.authenticateWithEmailCode(account, String(args.code));
