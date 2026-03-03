@@ -35,6 +35,30 @@ export class CookieJar implements Iterable<CookieRecord> {
   toArray(): CookieRecord[] {
     return [...this.cookies];
   }
+
+  buildCookieHeader(url: URL): string | null {
+    const pairs: string[] = [];
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    for (const cookie of this.cookies) {
+      if (typeof cookie.expires === 'number' && cookie.expires <= nowSeconds) {
+        continue;
+      }
+      if (cookie.secure && url.protocol !== 'https:') {
+        continue;
+      }
+      if (!domainMatches(cookie.domain, url.hostname)) {
+        continue;
+      }
+      if (!pathMatches(cookie.path, url.pathname)) {
+        continue;
+      }
+      pairs.push(`${cookie.name}=${cookie.value}`);
+    }
+    if (pairs.length === 0) {
+      return null;
+    }
+    return pairs.join('; ');
+  }
 }
 
 export interface HttpResponseLike {
@@ -66,8 +90,13 @@ class FetchHttpSession implements HttpSession {
     timeoutSeconds: number;
   }): Promise<HttpResponseLike> {
     const requestUrl = new URL(options.url);
+    const requestHeaders: Record<string, string> = { ...(options.headers ?? {}) };
     for (const [key, value] of Object.entries(options.params ?? {})) {
       requestUrl.searchParams.set(key, String(value));
+    }
+    const cookieHeader = this.cookies.buildCookieHeader(requestUrl);
+    if (cookieHeader && !requestHeaders.Cookie && !requestHeaders.cookie) {
+      requestHeaders.Cookie = cookieHeader;
     }
 
     const controller = new AbortController();
@@ -78,7 +107,7 @@ class FetchHttpSession implements HttpSession {
     try {
       const response = await fetch(requestUrl, {
         method: options.method,
-        headers: options.headers,
+        headers: requestHeaders,
         body: options.json === undefined ? undefined : JSON.stringify(options.json),
         signal: controller.signal
       });
@@ -319,3 +348,33 @@ export function findNestedKey(payload: Record<string, unknown>, keys: string[]):
   return null;
 }
 
+function normalizeCookieDomain(domain: string): string {
+  return domain.trim().toLowerCase().replace(/^\.+/, '');
+}
+
+function domainMatches(cookieDomainRaw: string, requestHostRaw: string): boolean {
+  const cookieDomain = normalizeCookieDomain(cookieDomainRaw);
+  const requestHost = requestHostRaw.trim().toLowerCase();
+  if (!cookieDomain || !requestHost) {
+    return false;
+  }
+  if (requestHost === cookieDomain) {
+    return true;
+  }
+  return requestHost.endsWith(`.${cookieDomain}`);
+}
+
+function pathMatches(cookiePathRaw: string, requestPathRaw: string): boolean {
+  const cookiePath = cookiePathRaw || '/';
+  const requestPath = requestPathRaw || '/';
+  if (cookiePath === '/') {
+    return true;
+  }
+  if (!requestPath.startsWith(cookiePath)) {
+    return false;
+  }
+  if (requestPath.length === cookiePath.length) {
+    return true;
+  }
+  return cookiePath.endsWith('/') || requestPath[cookiePath.length] === '/';
+}
